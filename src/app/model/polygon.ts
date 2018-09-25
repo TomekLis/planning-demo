@@ -4,7 +4,7 @@ import { Point } from '@agm/core/services/google-maps-types';
 export class PolygonCell {
   shape: CellType;
   cellCenter: LatLng;
-  vertices: Point[];
+  vertices: LatLng[];
 
   constructor(shape: CellType, cellCenter: LatLng) {
     this.shape = shape;

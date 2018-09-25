@@ -62,12 +62,13 @@ export class MapComponent implements OnInit {
 
   async onConfirmSelection() {
     const bounds = new google.maps.LatLngBounds();
-    const polygonCoords = await this.polygonService.getPolygonPoints(this.agmPolygon);
-    console.log(polygonCoords);
+    const polygonCoords = await this.polygonService.getPolygonPoints(
+      this.agmPolygon
+    );
     polygonCoords.forEach(polygonCoord => {
       bounds.extend(polygonCoord);
     });
-    this.grid = await this.gridGeneratorService.GenerateGrid(
+    this.grid = this.gridGeneratorService.GenerateGrid(
       CellType.Hexagonal,
       polygonCoords,
       1000

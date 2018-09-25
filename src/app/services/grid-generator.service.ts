@@ -10,10 +10,8 @@ declare const google: any;
 })
 export class GridGeneratorService {
   sphericalApi: any;
-  constructor() {}
-  /**
-   * GenerateGrid
-   */
+  constructor(private polygonService: PolygonService) {}
+
   public GenerateGrid(
     gridType: CellType,
     areaVertices: LatLng[],
@@ -28,49 +26,94 @@ export class GridGeneratorService {
 
     const areaCenter = this.getAreaCenter(polygonBounds);
 
-    const furthestPointDistance = this.getFarthestPoint(
-      areaVertices,
-      areaCenter
-    );
+    const farthestPoint = this.getFarthestPoint(areaVertices, areaCenter);
 
-    const numOfLevels = this.getNumberOfLevels(furthestPointDistance, cellSize);
+    const numOfLevels = this.getNumberOfLevels(
+      farthestPoint.distance,
+      cellSize
+    );
 
     const centerPoints = this.getCenterPoints(
       numOfLevels,
       areaCenter,
-      cellSize
+      cellSize,
+      farthestPoint.heading
     );
 
     const grid: Grid = new Grid();
     centerPoints.forEach(centerPoint => {
-      const newPolygonCell = this.generateCell(centerPoint, cellSize);
-      grid.cells.push(newPolygonCell);
+      const newPolygonCell = this.generateCell(
+        centerPoint,
+        cellSize,
+        farthestPoint.heading
+      );
+      if (
+        this.polygonService.containsLocation(
+          areaVertices,
+          newPolygonCell.vertices
+        )
+      ) {
+        grid.cells.push(newPolygonCell);
+      }
     });
     return grid;
   }
-  generateCell(centerPoint: LatLng, size: number): PolygonCell {
+
+  generateCell(centerPoint: LatLng, size: number, offset: number): PolygonCell {
     const polygonCell: PolygonCell = new PolygonCell(
       CellType.Hexagonal,
       centerPoint
     );
-    for (let heading = 0; heading < 360; heading += 60) {
+    for (let heading = 0 + offset; heading < 360 + offset; heading += 60) {
       polygonCell.vertices.push(
         this.sphericalApi.computeOffset(centerPoint, size, heading)
       );
     }
     return polygonCell;
   }
-  getNumberOfLevels(furthestPointDistance: number, cellSize: number): number {
-    return Math.ceil(furthestPointDistance / (cellSize * Math.sqrt(3)));
+
+  private getNumberOfLevels(
+    furthestPointDistance: number,
+    cellSize: number
+  ): number {
+    return Math.ceil(furthestPointDistance / ((cellSize * Math.sqrt(3)) / 2));
   }
-  getFarthestPoint(areaVertices: LatLng[], areaCenter: LatLng): number {
-    return Math.max.apply(
-      Math,
-      areaVertices.map(path => {
-        return this.sphericalApi.computeDistanceBetween(areaCenter, path);
-      })
+
+  private getFarthestPoint(
+    areaVertices: LatLng[],
+    areaCenter: LatLng
+  ): { farthestPoint: LatLng; distance: number; heading: number } {
+    let farthestPointDistance;
+    const farthestPoint = areaVertices.reduce(
+      (prev, current): LatLng => {
+        const prevDistance = google.maps.geometry.spherical.computeDistanceBetween(
+          areaCenter,
+          prev
+        );
+        const currentDistance = google.maps.geometry.spherical.computeDistanceBetween(
+          areaCenter,
+          current
+        );
+        if (prevDistance > currentDistance) {
+          farthestPointDistance = prevDistance;
+          return prev;
+        } else {
+          farthestPointDistance = currentDistance;
+          return current;
+        }
+      }
     );
+    const heading = google.maps.geometry.spherical.computeHeading(
+      areaCenter,
+      farthestPoint
+    );
+    return {
+      farthestPoint: farthestPoint,
+      distance: farthestPointDistance,
+      heading: heading
+    };
   }
+
   private getAreaCenter(polygonBounds: LatLngBounds): LatLng {
     return polygonBounds.getCenter();
   }
@@ -78,36 +121,53 @@ export class GridGeneratorService {
   private getCenterPoints(
     numOfLevels: number,
     centerPoint: LatLng,
-    size: number
+    size: number,
+    offset: number
   ): LatLng[] {
-    const cellCenters: LatLng[] = [];
+    let cellCenters: LatLng[] = [];
     cellCenters.push(centerPoint);
+
     if (numOfLevels <= 1) {
       return cellCenters;
     }
-    const sphericalApi = google.maps.geometry.spherical;
 
     const distanceFromCenter = size * Math.sqrt(3);
     let currentLevel = 0;
+
     while (currentLevel < numOfLevels - 1) {
-      for (let heading = 30; heading < 360; heading += 60) {
-        let newPoint = sphericalApi.computeOffset(
+      cellCenters = cellCenters.concat(
+        this.polygonService.generatePolygon(
           centerPoint,
           distanceFromCenter * (currentLevel + 1),
-          heading
-        );
-        cellCenters.push(newPoint);
-        for (let index = 1; index <= currentLevel; index++) {
-          newPoint = sphericalApi.computeOffset(
-            newPoint,
-            distanceFromCenter,
-            heading + 120
-          );
-          cellCenters.push(newPoint);
-        }
-      }
+          offset + 30,
+          60,
+          currentLevel,
+          120,
+          distanceFromCenter,
+          this.fillingFunction
+        )
+      );
       currentLevel++;
     }
     return cellCenters;
+  }
+
+  private fillingFunction(
+    startingPoint: LatLng,
+    level: number,
+    fillingOffset: number,
+    distanceFromStartingPoint: number,
+    sphericalApi: any
+  ): LatLng[] {
+    const fillingCellCenters = [];
+    for (let index = 1; index <= level; index++) {
+      const newPoint = sphericalApi.computeOffset(
+        startingPoint,
+        distanceFromStartingPoint * index,
+        fillingOffset
+      );
+      fillingCellCenters.push(newPoint);
+    }
+    return fillingCellCenters;
   }
 }

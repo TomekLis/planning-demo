@@ -6,10 +6,10 @@
           [fillOpacity]="0.4" [strokeColor]="'#ffa800'" [polyDraggable]="true" (polyMouseUp)="calculateAreaSize()">
         </agm-polygon>
         <agm-info-window [latitude]="infoWindowLat" [longitude]="infoWindowLng">{{areaSize + ' m²'}}</agm-info-window>
-        <agm-marker *ngFor="let coord of markerCoords; index as i" [latitude]="coord.lat()" [longitude]="coord.lng()"
+        <!-- <agm-marker *ngFor="let coord of markerCoords; index as i" [latitude]="coord.lat()" [longitude]="coord.lng()"
           [label]="(i + 1).toString()+'\u200b'">
-          * </agm-marker>
-        <agm-polygon *ngFor="let cell of grid.cells" [paths]="[cell.vertices]" [fillOpacity]="{hover==true  ? '0.1' : '0.4'}">
+          * </agm-marker> -->
+        <agm-polygon *ngFor="let cell of grid.cells" [paths]="[cell.vertices]" [fillOpacity]="0.1">
         </agm-polygon>
       </agm-map>
     </div>

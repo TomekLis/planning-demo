@@ -6,10 +6,10 @@ export class PolygonCell {
   cellCenter: LatLng;
   vertices: LatLng[];
 
-  constructor(shape: CellType, cellCenter: LatLng) {
+  constructor(shape: CellType, cellCenter: LatLng, vertices: LatLng[]) {
     this.shape = shape;
     this.cellCenter = cellCenter;
-    this.vertices = [];
+    this.vertices = vertices;
   }
 }
 

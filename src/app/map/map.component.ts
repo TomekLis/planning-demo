@@ -69,10 +69,11 @@ export class MapComponent implements OnInit {
       bounds.extend(polygonCoord);
     });
     this.grid = this.gridGeneratorService.GenerateGrid(
-      CellType.Hexagonal,
+      CellType.Rectangular,
       polygonCoords,
-      1000
+      2500
     );
+    // this.markerCoords = this.grid.cells.map(x => x.cellCenter);
   }
 
   async calculateAreaSize() {

@@ -3,6 +3,7 @@ import { Grid } from '../model/grid';
 import { CellType, PolygonCell } from '../model/polygon';
 import { AgmPolygon, LatLng, LatLngBounds } from '@agm/core';
 import { PolygonService } from './polygon.service';
+import { PolygonCharacteristics } from '../model/polygon-charatcteristics';
 declare const google: any;
 
 @Injectable({
@@ -19,7 +20,7 @@ export class GridGeneratorService {
   ): Grid {
     this.sphericalApi = google.maps.geometry.spherical;
     const polygonBounds = new google.maps.LatLngBounds();
-
+    const polygonCharacteristics = new PolygonCharacteristics(gridType);
     areaVertices.forEach(polygonCoord => {
       polygonBounds.extend(polygonCoord);
     });
@@ -30,14 +31,16 @@ export class GridGeneratorService {
 
     const numOfLevels = this.getNumberOfLevels(
       farthestPoint.distance,
-      cellSize
+      cellSize,
+      polygonCharacteristics
     );
 
     const centerPoints = this.getCenterPoints(
       numOfLevels,
       areaCenter,
       cellSize,
-      farthestPoint.heading
+      farthestPoint.heading,
+      polygonCharacteristics
     );
 
     const grid: Grid = new Grid();
@@ -45,7 +48,8 @@ export class GridGeneratorService {
       const newPolygonCell = this.generateCell(
         centerPoint,
         cellSize,
-        farthestPoint.heading
+        farthestPoint.heading + polygonCharacteristics.offset,
+        polygonCharacteristics
       );
       if (
         this.polygonService.containsLocation(
@@ -59,24 +63,34 @@ export class GridGeneratorService {
     return grid;
   }
 
-  generateCell(centerPoint: LatLng, size: number, offset: number): PolygonCell {
+  generateCell(
+    centerPoint: LatLng,
+    size: number,
+    offset: number,
+    polygonCharacteristics: PolygonCharacteristics
+  ): PolygonCell {
     const polygonCell: PolygonCell = new PolygonCell(
-      CellType.Hexagonal,
-      centerPoint
+      polygonCharacteristics.polygonType,
+      centerPoint,
+      this.polygonService.generatePolygon(
+        polygonCharacteristics,
+        centerPoint,
+        size,
+        offset + (polygonCharacteristics.polygonType === CellType.Rectangular ? polygonCharacteristics.offset : 0)
+      )
     );
-    for (let heading = 0 + offset; heading < 360 + offset; heading += 60) {
-      polygonCell.vertices.push(
-        this.sphericalApi.computeOffset(centerPoint, size, heading)
-      );
-    }
     return polygonCell;
   }
 
   private getNumberOfLevels(
     furthestPointDistance: number,
-    cellSize: number
+    cellSize: number,
+    polygonCharacteristics: PolygonCharacteristics
   ): number {
-    return Math.ceil(furthestPointDistance / ((cellSize * Math.sqrt(3)) / 2));
+    return Math.ceil(
+      furthestPointDistance /
+        (polygonCharacteristics.distanceFromCenterFunction(cellSize) / 2)
+    );
   }
 
   private getFarthestPoint(
@@ -122,7 +136,8 @@ export class GridGeneratorService {
     numOfLevels: number,
     centerPoint: LatLng,
     size: number,
-    offset: number
+    offset: number,
+    polygonCharacteristics: PolygonCharacteristics
   ): LatLng[] {
     let cellCenters: LatLng[] = [];
     cellCenters.push(centerPoint);
@@ -131,19 +146,18 @@ export class GridGeneratorService {
       return cellCenters;
     }
 
-    const distanceFromCenter = size * Math.sqrt(3);
-    let currentLevel = 0;
+    let currentLevel = 1;
 
-    while (currentLevel < numOfLevels - 1) {
+    while (currentLevel < numOfLevels) {
       cellCenters = cellCenters.concat(
         this.polygonService.generatePolygon(
+          polygonCharacteristics,
           centerPoint,
-          distanceFromCenter * (currentLevel + 1),
-          offset + 30,
-          60,
+          polygonCharacteristics.distanceFromCenterFunction(size) *
+            currentLevel,
+          offset,
           currentLevel,
-          120,
-          distanceFromCenter,
+          size,
           this.fillingFunction
         )
       );
@@ -154,19 +168,27 @@ export class GridGeneratorService {
 
   private fillingFunction(
     startingPoint: LatLng,
-    level: number,
+    currentLevel: number,
     fillingOffset: number,
-    distanceFromStartingPoint: number,
-    sphericalApi: any
+    cellSize: number,
+    sphericalApi: any,
+    polygonCharacteristics: PolygonCharacteristics
   ): LatLng[] {
     const fillingCellCenters = [];
-    for (let index = 1; index <= level; index++) {
-      const newPoint = sphericalApi.computeOffset(
-        startingPoint,
-        distanceFromStartingPoint * index,
+    let newPoint = startingPoint;
+    for (
+      let index = 1;
+      index < polygonCharacteristics.fillingCellNumber(currentLevel);
+      index++
+    ) {
+      newPoint = sphericalApi.computeOffset(
+        newPoint,
+        polygonCharacteristics.distanceBetweenCells(cellSize),
         fillingOffset
       );
-      fillingCellCenters.push(newPoint);
+      if (newPoint.lat() && newPoint.lng()) {
+        fillingCellCenters.push(newPoint);
+      }
     }
     return fillingCellCenters;
   }

@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { AgmPolygon } from '@agm/core';
-import { Point, LatLng } from '@agm/core/services/google-maps-types';
-import { Coordinate } from 'jsts/org/locationtech/jts/geom/Coordinate';
+import { LatLng } from '@agm/core/services/google-maps-types';
 declare const google: any;
 import * as jsts from 'jsts';
+import { CellType } from '../model/polygon';
+import { PolygonCharacteristics } from '../model/polygon-charatcteristics';
 
 @Injectable({
   providedIn: 'root'
@@ -24,7 +25,10 @@ export class PolygonService {
     return points;
   }
 
-  containsLocation(mainAreaVertices: LatLng[], cellVertices: LatLng[]) {
+  containsLocation(
+    mainAreaVertices: LatLng[],
+    cellVertices: LatLng[]
+  ): boolean {
     const mainAreaPolygon = this.createJstsPolygon(mainAreaVertices);
     const cellPolygon = this.createJstsPolygon(cellVertices);
     return mainAreaPolygon.intersects(cellPolygon);
@@ -45,25 +49,29 @@ export class PolygonService {
   }
 
   generatePolygon(
+    polygonCharacteristics: PolygonCharacteristics,
     centerPoint: LatLng,
     size: number,
     offset: number,
-    step: number,
     fillingLevel?: number,
-    fillingOffset?: number,
-    distanceFromStartingPoint?: number,
+    cellSize?: number,
     fillingFunction?: (
       startingPoint: LatLng,
       currentLevel: number,
       fillingOffset: number,
-      distanceFromStartingPoint: number,
-      sphericalApi: any
+      cellSize: number,
+      sphericalApi: any,
+      polygonCharacteristics: PolygonCharacteristics
     ) => LatLng[]
   ): LatLng[] {
     const sphericalApi = google.maps.geometry.spherical;
     let polygonVertices: LatLng[] = [];
 
-    for (let heading = offset; heading < 360 + offset; heading += step) {
+    for (
+      let heading = polygonCharacteristics.offset + offset;
+      heading < 360 + offset;
+      heading += polygonCharacteristics.step
+    ) {
       const newPoint = sphericalApi.computeOffset(centerPoint, size, heading);
       polygonVertices.push(newPoint);
 
@@ -71,9 +79,10 @@ export class PolygonService {
         const fillingPoints = fillingFunction(
           newPoint,
           fillingLevel,
-          heading + fillingOffset,
-          distanceFromStartingPoint,
-          sphericalApi
+          heading + polygonCharacteristics.fillingOffset,
+          cellSize,
+          sphericalApi,
+          polygonCharacteristics
         );
         polygonVertices = polygonVertices.concat(fillingPoints);
       }

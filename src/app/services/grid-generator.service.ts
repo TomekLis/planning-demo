@@ -4,6 +4,8 @@ import { CellType, PolygonCell } from '../model/polygon';
 import { AgmPolygon, LatLng, LatLngBounds } from '@agm/core';
 import { PolygonService } from './polygon.service';
 import { PolygonCharacteristics } from '../model/polygon-charatcteristics';
+import { Observable } from 'rxjs';
+import { of } from 'rxjs';
 declare const google: any;
 
 @Injectable({
@@ -13,11 +15,11 @@ export class GridGeneratorService {
   sphericalApi: any;
   constructor(private polygonService: PolygonService) {}
 
-  public GenerateGrid(
+  public async GenerateGrid(
     gridType: CellType,
     areaVertices: LatLng[],
     cellSize: number
-  ): Grid {
+  ): Promise<Grid> {
     this.sphericalApi = google.maps.geometry.spherical;
     const polygonBounds = new google.maps.LatLngBounds();
     const polygonCharacteristics = new PolygonCharacteristics(gridType);
@@ -44,8 +46,8 @@ export class GridGeneratorService {
     );
 
     const grid: Grid = new Grid();
-    centerPoints.forEach(centerPoint => {
-      const newPolygonCell = this.generateCell(
+    centerPoints.forEach(async centerPoint => {
+      const newPolygonCell = await this.generateCell(
         centerPoint,
         cellSize,
         farthestPoint.heading + polygonCharacteristics.offset,
@@ -63,20 +65,23 @@ export class GridGeneratorService {
     return grid;
   }
 
-  generateCell(
+  async generateCell(
     centerPoint: LatLng,
     size: number,
     offset: number,
     polygonCharacteristics: PolygonCharacteristics
-  ): PolygonCell {
+  ): Promise<PolygonCell> {
     const polygonCell: PolygonCell = new PolygonCell(
       polygonCharacteristics.polygonType,
       centerPoint,
-      this.polygonService.generatePolygon(
+       this.polygonService.generatePolygon(
         polygonCharacteristics,
         centerPoint,
         size,
-        offset + (polygonCharacteristics.polygonType === CellType.Rectangular ? polygonCharacteristics.offset : 0)
+        offset +
+          (polygonCharacteristics.polygonType === CellType.Rectangular
+            ? polygonCharacteristics.offset
+            : 0)
       )
     );
     return polygonCell;

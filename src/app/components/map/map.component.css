@@ -1,0 +1,12 @@
+agm-map {
+  height: 80vh;
+}
+
+#holder {
+  padding-top: 4%;
+  padding-left: 2%;
+}
+
+/* div.overlay.standard {
+  background: #fff url(/image/loading.gif) no-repeat 50% 50%;
+} */

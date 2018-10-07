@@ -1,0 +1,63 @@
+<div id="holder" class="row">
+  <div class="col-8">
+
+    <agm-map [latitude]="latitude" [longitude]="longitude" [zoom]="zoom">
+
+      <agm-polygon [paths]="polygonCoords" [editable]="true" [clickable]="true" [geodesic]="true" [fillColor]="'#d18300'"
+        [fillOpacity]="0.4" [strokeColor]="'#ffa800'" [polyDraggable]="true" (polyMouseUp)="calculateAreaSize()">
+      </agm-polygon>
+      <agm-info-window [latitude]="infoWindowLat" [longitude]="infoWindowLng">{{areaSize + ' m²'}}</agm-info-window>
+      <!-- <agm-marker *ngFor="let coord of markerCoords; index as i" [latitude]="coord.lat()" [longitude]="coord.lng()"
+          [label]="(i + 1).toString()+'\u200b'">
+          * </agm-marker> -->
+
+      <ng-container *ngIf="grid$ | async as grid">
+
+        <agm-polygon *ngFor="let cell of grid.cells" [paths]="[cell.vertices]" [fillOpacity]="0.1">
+        </agm-polygon>
+      </ng-container>
+    </agm-map>
+
+  </div>
+
+  <div class="col-3 pl-0">
+    <h2>Choose area to cover with grid</h2>
+    <p>
+      <mat-form-field appearance="legacy">
+        <mat-label>Area name</mat-label>
+        <input matInput type="text" id="searchInput" placeholder="Placeholder" class="form-control" #search>
+      </mat-form-field>
+    </p>
+    <p>
+      <mat-form-field appearance="legacy">
+        <mat-label>Cell size [m]</mat-label>
+        <input matInput type="number" id="cellSizeInput" min="500" max="1500" placeholder="Placeholder" class="form-control"
+          [formControl]="cellSizeControl">
+        <mat-error *ngIf="cellSizeControl.hasError('min') || cellSizeControl.hasError('min')">
+          Cell size must be between 500 and 1500
+        </mat-error>
+      </mat-form-field>
+    </p>
+    <p>
+      <mat-radio-group [formControl]="cellTypeControl" appearance="legacy">
+        <mat-radio-button *ngFor="let cellType of cellTypeRadioOptions" [value]="cellType.value">{{cellType.name}}</mat-radio-button>
+      </mat-radio-group>
+    </p>
+    <button mat-button (click)="onConfirmSelection()" [disabled]="!isPlaceSelected || cellSizeControl.invalid || cellTypeControl.invalid">Generate grid
+    </button>
+    <div class="row mt-4 mb-2 h-50">
+      <div class="row mt-5">
+        <div class="col text-center">
+          <div class="row">
+            <div class="col">
+
+            </div>
+          </div>
+          <div class="row mt-5">
+            <div class="col">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

@@ -24,8 +24,8 @@ export class MapsService {
 
   getDefaultPolygon(lat: number, lng: number) {
     const polygonCoords = [];
-    const latDelta = 0.06;
-    const lngDelta = 0.1;
+    const latDelta = 0.05;
+    const lngDelta = 0.05;
 
     polygonCoords.push(
       {

@@ -3,7 +3,9 @@ import {
   OnInit,
   ViewChild,
   ElementRef,
-  NgZone
+  NgZone,
+  OnChanges,
+  SimpleChanges
 } from '@angular/core';
 import {
   LatLngLiteral,
@@ -14,12 +16,25 @@ import {
   LatLng
 } from '@agm/core';
 import { Point } from '@agm/core/services/google-maps-types';
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-import { MapsService, Area } from '../services/maps.service';
-import { GridGeneratorService } from '../services/grid-generator.service';
-import { CellType, PolygonCell } from '../model/polygon';
-import { Grid } from '../model/grid';
-import { PolygonService } from '../services/polygon.service';
+import { FormsModule, FormGroup } from '@angular/forms';
+
+import { MapsService, Area } from '../../services/maps.service';
+import { GridGeneratorService } from '../../services/grid-generator.service';
+import { CellType, PolygonCell } from '../../model/polygon';
+import { PolygonService } from '../../services/polygon.service';
+import { Observable } from 'rxjs';
+import { ChangeDetectorRef } from '@angular/core';
+import { Grid } from '../../model/grid';
+import { LoadingModalComponent } from '../loading-modal/loading-modal.component';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import {
+  FormControl,
+  FormGroupDirective,
+  NgForm,
+  Validators
+} from '@angular/forms';
+import { CustomErrorStateMatcher } from '../../helpers/ErrorStateMatcher';
+
 declare const google: any;
 
 @Component({
@@ -33,26 +48,44 @@ export class MapComponent implements OnInit {
   infoWindowLat: number;
   infoWindowLng: number;
   areaSize = 0;
+
   isPlaceSelected = false;
   @ViewChild('search')
   private searchElementRef: ElementRef;
   @ViewChild(AgmInfoWindow)
   private agmInfoWindow;
   @ViewChild(AgmPolygon)
-  private agmPolygon;
+  private agmPolygon: AgmPolygon;
   private location: string;
   private autocomplete: any;
-
+  isLoading = false;
+  zoom = 12;
   markerCoords: LatLng[] = [];
-  grid: Grid = { cells: [] };
+  grid$: Promise<Grid>;
   polygonCoords: Point[] = [];
+
+  cellSizeControl = new FormControl('', [
+    Validators.required,
+    Validators.min(500),
+    Validators.max(1500)
+  ]);
+
+  cellTypeControl = new FormControl('', [Validators.required]);
+
+  matcher = new CustomErrorStateMatcher();
+
+  cellTypeRadioOptions = [
+    { name: 'Hexagonal', value: CellType.Hexagonal },
+    { name: 'Rectangular', value: CellType.Rectangular }
+  ];
 
   constructor(
     private ngZone: NgZone,
     private mapsAPILoader: MapsAPILoader,
     private mapsService: MapsService,
     private gridGeneratorService: GridGeneratorService,
-    private polygonService: PolygonService
+    private polygonService: PolygonService,
+    private modalService: NgbModal
   ) {}
 
   async ngOnInit() {
@@ -65,15 +98,16 @@ export class MapComponent implements OnInit {
     const polygonCoords = await this.polygonService.getPolygonPoints(
       this.agmPolygon
     );
+
     polygonCoords.forEach(polygonCoord => {
       bounds.extend(polygonCoord);
     });
-    this.grid = this.gridGeneratorService.GenerateGrid(
-      CellType.Rectangular,
+
+    this.grid$ = this.gridGeneratorService.GenerateGrid(
+      this.cellTypeControl.value,
       polygonCoords,
-      2500
+      this.cellSizeControl.value
     );
-    // this.markerCoords = this.grid.cells.map(x => x.cellCenter);
   }
 
   async calculateAreaSize() {
